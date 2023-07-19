@@ -1,7 +1,7 @@
-const contacts = require("../models/contacts");
 const joi = require("joi");
 const httpError = require("../utils/HttpError");
 const controlWrapper = require("../utils/ControlWrapper");
+const Contact  = require("../models/contact");
 
 const schemaPost = joi.object({
   name: joi.string().required(),
@@ -12,6 +12,8 @@ const schemaPost = joi.object({
     .required(),
 
   phone: joi.string().required(),
+  
+  favorite: joi.boolean()
 });
 
 const schemaPut = joi.object({
@@ -22,10 +24,16 @@ const schemaPut = joi.object({
     .email({ minDomainSegments: 2, tlds: { allow: ["com", "net"] } }),
 
   phone: joi.string(),
+
+  favorite: joi.boolean()
+});
+
+const schemaUpdateFavorite = joi.object({
+  favorite: joi.boolean().required(),
 });
 
 const getAll = async (req, res, next) => {
-  const result = await contacts.listContacts();
+  const result = await Contact.find();
   if (!result) {
     throw httpError(404, "Not Found");
   }
@@ -34,7 +42,7 @@ const getAll = async (req, res, next) => {
 
 const getById = async (req, res, next) => {
   const { id } = req.params;
-  const result = await contacts.getContactById(id);
+  const result = await Contact.findById(id);
   if (!result) {
     throw httpError(404, "Not Found");
   }
@@ -42,19 +50,19 @@ const getById = async (req, res, next) => {
 };
 
 const addContact = async (req, res, next) => {
-  const { name, email, phone } = req.query;
+  // const { name, email, phone } = req.query;
 
   const { error } = schemaPost.validate(req.query);
   if (error) {
     throw httpError(400, error.message);
   }
-  const result = await contacts.addContact(name, email, phone);
+  const result = await Contact.create(req.query);
   res.status(201).json(result);
 };
 
 const deleteContact = async (req, res, next) => {
   const { id } = req.params;
-  const result = await contacts.removeContact(id);
+  const result = await Contact.findByIdAndRemove(id);
   if (!result) {
     throw httpError(404, "Not found");
   }
@@ -71,9 +79,25 @@ const changeContact = async (req, res, next) => {
   if (error) {
     throw httpError(404, error.message);
   }
-  const result = await contacts.updateContact(id, req.query);
+  const result = await Contact.findByIdAndUpdate(id, req.query, {new: true});
   res.status(200).json(result);
 };
+
+const changeFavorite = async (req, res, next) => {
+  const { id } = req.params;
+
+  if (!Object.keys(req.body).length) {
+    res.status(400).json({ message: "missing field favorite" });
+  }
+  const { error } = schemaUpdateFavorite.validate(req.body);
+
+  if (error) {
+    throw httpError(404, error.message);
+  }
+  const result = await Contact.findByIdAndUpdate(id, req.body, {new: true});
+  res.status(200).json(result);
+};
+
 
 module.exports = {
   getAll: controlWrapper(getAll),
@@ -81,4 +105,5 @@ module.exports = {
   addContact: controlWrapper(addContact),
   deleteContact: controlWrapper(deleteContact),
   changeContact: controlWrapper(changeContact),
+  changeFavorite: controlWrapper(changeFavorite),
 };
