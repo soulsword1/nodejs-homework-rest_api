@@ -1,7 +1,7 @@
 const httpError = require("../utils/HttpError");
 const controlWrapper = require("../utils/ControlWrapper");
-const Contact  = require("../models/contact");
-const schemas = require("../models/contact");
+const { Contact }  = require("../models/contact");
+const { schemas } = require("../models/contact");
 
 const getAll = async (req, res, next) => {
   const result = await Contact.find();
