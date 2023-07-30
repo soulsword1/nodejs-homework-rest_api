@@ -45,7 +45,7 @@ const login = async (req, res) => {
 
   try {
     const { payload } = jwt.verify(token, SECRET_KEY);
-    await User.findByIdAndUpdate(loginUser._id, {token});
+    await User.findByIdAndUpdate(loginUser._id, { token });
     res.json({
       token,
       user: {
@@ -58,29 +58,43 @@ const login = async (req, res) => {
   }
 };
 
-const logout = async (req,res,next) => {
-    const { _id, email, subscription } = req.user;
-    console.log(req.user)
-    await User.findByIdAndUpdate(_id, {token: ''});
+const logout = async (req, res, next) => {
+  const { _id, email, subscription } = req.user;
+  console.log(req.user);
+  await User.findByIdAndUpdate(_id, { token: "" });
 
-    res.json({
-        email,
-        subscription
-    })
-}
+  res.json({
+    email,
+    subscription,
+  });
+};
 
-const current = (req,res,next) => {
-    const {email,name} = req.user;
+const current = (req, res, next) => {
+  const { email, name } = req.user;
 
-    res.json({
-        email,
-        name
-    })
-}
+  res.json({
+    email,
+    name,
+  });
+};
+
+const changeSubscription = async (req, res, next) => {
+  const subscriptionTypes = ["starter", "pro", "business"];
+  const { _id } = req.user;
+  const subscription = req.body;
+
+  if (!subscriptionTypes.includes(subscription)) {
+    next(httpError(400, "No such subscription type"));
+  }
+
+  await User.findByIdAndUpdate(_id, subscription);
+  next();
+};
 
 module.exports = {
   register: controlWrapper(register),
   login: controlWrapper(login),
   logout: controlWrapper(logout),
   current: controlWrapper(current),
+  changeSubscription: controlWrapper(changeSubscription),
 };
