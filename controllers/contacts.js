@@ -1,10 +1,16 @@
 const httpError = require("../utils/HttpError");
 const controlWrapper = require("../utils/ControlWrapper");
-const { Contact }  = require("../models/contact");
+const { Contact } = require("../models/contact");
 const { schemas } = require("../models/contact");
 
 const getAll = async (req, res, next) => {
-  const result = await Contact.find();
+  const {_id: owner} = req.user;
+  const {favorite, page = 1, limit= 10} = req.query;
+  const skip = (page - 1) * limit;
+  const result = favorite ?
+     (await Contact.find({owner},"", {skip, limit: Number(limit)})).filter(contact => String(contact.favorite) === favorite)
+     : await Contact.find({owner},"", {skip, limit: Number(limit)});
+  
   if (!result) {
     throw httpError(404, "Not Found");
   }
@@ -21,13 +27,8 @@ const getById = async (req, res, next) => {
 };
 
 const addContact = async (req, res, next) => {
-  // const { name, email, phone } = req.query;
-
-  const { error } = schemas.schemaPost.validate(req.query);
-  if (error) {
-    throw httpError(400, error.message);
-  }
-  const result = await Contact.create(req.query);
+  const { _id: owner } = req.user;
+  const result = await Contact.create({ ...req.query, owner });
   res.status(201).json(result);
 };
 
@@ -45,12 +46,7 @@ const changeContact = async (req, res, next) => {
   if (!Object.keys(req.query).length) {
     res.status(400).json({ message: "missing fields" });
   }
-  const { error } = schemas.schemaPut.validate(req.query);
-
-  if (error) {
-    throw httpError(404, error.message);
-  }
-  const result = await Contact.findByIdAndUpdate(id, req.query, {new: true});
+  const result = await Contact.findByIdAndUpdate(id, req.query, { new: true });
   res.status(200).json(result);
 };
 
@@ -65,10 +61,9 @@ const changeFavorite = async (req, res, next) => {
   if (error) {
     throw httpError(404, error.message);
   }
-  const result = await Contact.findByIdAndUpdate(id, req.body, {new: true});
+  const result = await Contact.findByIdAndUpdate(id, req.body, { new: true });
   res.status(200).json(result);
 };
-
 
 module.exports = {
   getAll: controlWrapper(getAll),
