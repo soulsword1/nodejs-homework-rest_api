@@ -46,6 +46,7 @@ const schemaPut = joi.object({
   phone: joi.string(),
 
   favorite: joi.boolean(),
+
 });
 
 const schemaUpdateFavorite = joi.object({
