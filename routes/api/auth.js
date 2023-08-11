@@ -12,5 +12,7 @@ router.post('/logout', authenticate, ctrl.logout);
 router.get('/current', authenticate, ctrl.current);
 router.patch('/', authenticate, ctrl.changeSubscription);
 router.patch('/avatars',upload.single('avatar'), authenticate, ctrl.changeAvatar);
+router.get('/verify/:verificationToken', ctrl.userVerificationToken);
+router.post('/verify', ctrl.userVerification);
 
 module.exports = router;
