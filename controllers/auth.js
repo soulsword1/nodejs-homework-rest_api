@@ -1,14 +1,16 @@
-const httpError = require("../utils/HttpError");
 const bycryptjs = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const { nanoid } = require("nanoid");
 const path = require("path");
 const jimp = require('jimp');
 const gravatar = require("gravatar");
+const sgMail = require('@sendgrid/mail');
 const controlWrapper = require("../utils/ControlWrapper");
+const httpError = require("../utils/HttpError");
 const { User } = require("../models/users");
-const { SECRET_KEY } = process.env;
+const { SECRET_KEY, SENDGRID_API_KEY } = process.env;
 const avatarsDir = path.join(__dirname, '../','public','avatars');
-
+sgMail.setApiKey(SENDGRID_API_KEY);
 
 const register = async (req, res) => {
   const { email, password } = req.body;
@@ -18,11 +20,22 @@ const register = async (req, res) => {
     throw httpError(409, "Email in use");
   }
 
+  const verificationToken = nanoid();
   const cryptedPassword = bycryptjs.hashSync(password, 10);
-  const newUser = await User.create({ ...req.body, password: cryptedPassword, avatarURL});
+  const newUser = await User.create({ ...req.body, password: cryptedPassword, avatarURL, verificationToken});
   if (!newUser) {
     throw httpError(404, "Not found");
   }
+
+  const emailSend = {
+    to: email,
+    from: 'hellowhynot1@gmail.com', // Use the email address or domain you verified above
+    subject: 'Sending with Twilio SendGrid is Fun',
+    text: 'and easy to do anywhere, even with Node.js',
+    html: `<a target="_blank" href="http://localhost:3000/api/users/verify/${verificationToken}">Click to confirm registration</a>`,
+  };
+
+  await sgMail.send(emailSend);
 
   res.status(201).json({
     user: {
@@ -35,6 +48,10 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   const { email, password } = req.body;
   const loginUser = await User.findOne({ email });
+  if(!loginUser.verify){
+    throw httpError(401, "Please confirm verification");
+  }
+
   if (!loginUser) {
     throw httpError(401, "Email or password is wrong");
   }
@@ -117,6 +134,50 @@ const changeAvatar = async (req,res,next) => {
   })
 }
 
+const userVerificationToken = async (req,res,next) => {
+  const { verificationToken } = req.params;
+  const user = await User.findOne({verificationToken});
+
+  if(!user){
+    throw httpError(404);
+  }
+
+  await User.findByIdAndUpdate(user._id, {verificationToken: null, verify : true})
+  
+  res.status(200).json({
+    message: "Verification successful" 
+  })
+}
+
+const userVerification = async (req,res,next) => {
+  const { email } = req.body;
+
+  if(!email){
+    throw httpError(400, "missing required field email");
+  }
+
+  const user = await User.findOne({email});
+  if(user.verify){
+    throw httpError(400, "Verification has already been passed");
+  }
+
+  const verificationToken = nanoid();
+  await User.findByIdAndUpdate(user._id, {verificationToken});
+
+  const emailSend = {
+    to: email,
+    from: 'hellowhynot1@gmail.com', // Use the email address or domain you verified above
+    subject: 'Sending with Twilio SendGrid is Fun',
+    text: 'and easy to do anywhere, even with Node.js',
+    html: `<a target="_blank" href="http://localhost:3000/api/users/verify/${verificationToken}">Click to confirm registration</a>`,
+  };
+
+  await sgMail.send(emailSend);
+
+  res.status(200).json({
+    message: "Verification email sent"
+  })
+}
 
 module.exports = {
   register: controlWrapper(register),
@@ -125,6 +186,8 @@ module.exports = {
   current: controlWrapper(current),
   changeSubscription: controlWrapper(changeSubscription),
   changeAvatar: controlWrapper(changeAvatar),
+  userVerification: controlWrapper(userVerification),
+  userVerificationToken: controlWrapper(userVerificationToken),
 };
 
 
